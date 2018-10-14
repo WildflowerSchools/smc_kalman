@@ -5,7 +5,23 @@ class GaussianVector:
         self,
         mean,
         covariance):
+        # Check properties of mean and coerce into desired format
+        mean = np.asarray(mean)
+        if np.squeeze(mean).ndim > 1:
+            raise ValueError('Specified mean vector is not one-dimensional')
+        mean = mean.reshape(mean.size)
         self.mean = mean
+        self.num_variables = self.mean.shape[0]
+        # Check properties of covariance and coerce into desired format
+        covariance = np.asarray(covariance)
+        if covariance.size == 1:
+            covariance = covariance.reshape((1, 1))
+        if covariance.ndim != 2:
+            raise ValueError('Specified covariance is not a two-dimensional matrix')
+        if covariance.shape[0] != covariance.shape[1]:
+            raise ValueError('Specified covariance is not a square matrix')
+        if covariance.shape[0] != self.num_variables:
+            raise ValueError('Dimensions of specified covariance not equal to number of variables implied by mean vector')
         self.covariance = covariance
 
 class LinearGaussianModel:
