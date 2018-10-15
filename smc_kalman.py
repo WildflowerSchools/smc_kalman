@@ -79,18 +79,18 @@ class LinearGaussianModel:
 
     def predict(
         self,
-        state_previous,
+        previous_state,
         control_vector = None):
-        # Check properties of state_mean_previous and coerce into desired format
-        state_mean_previous = np.asarray(state_previous.mean)
-        if state_mean_previous.size != self.num_state_variables:
+        # Check properties of previous_state_mean and coerce into desired format
+        previous_state_mean = np.asarray(previous_state.mean)
+        if previous_state_mean.size != self.num_state_variables:
             raise ValueError('Size of previous state mean vector does not equal number of state variables in model')
-        state_mean_previous = state_mean_previous.reshape(self.num_state_variables, 1)
-        # Check properties of state_covariance_previous and coerce into desired format
-        state_covariance_previous = np.asarray(state_previous.covariance)
-        if state_covariance_previous.size != self.num_state_variables**2:
+        previous_state_mean = previous_state_mean.reshape(self.num_state_variables, 1)
+        # Check properties of previous_state_covariance and coerce into desired format
+        previous_state_covariance = np.asarray(previous_state.covariance)
+        if previous_state_covariance.size != self.num_state_variables**2:
             raise ValueError('Size of previous state covariance matrix does not equal number of state variables in model squared')
-        state_covariance_previous = state_covariance_previous.reshape(self.num_state_variables, self.num_state_variables)
+        previous_state_covariance = previous_state_covariance.reshape(self.num_state_variables, self.num_state_variables)
         # Check properties of control_vector and coerce into desired format
         if control_vector is None:
             control_vector = np.zeros((num_control_variables, 1))
@@ -99,47 +99,47 @@ class LinearGaussianModel:
             raise ValueError('Size of control vector does not equal number of control variables in model')
         control_vector = control_vector.reshape(self.num_control_variables, 1)
         # Calculate the new state mean and covariance
-        state_mean = self.transition_model @ state_mean_previous + self.control_model @ control_vector
-        state_covariance = self.transition_model @ state_covariance_previous @ self.transition_model.T + self.transition_noise_covariance
+        state_mean = self.transition_model @ previous_state_mean + self.control_model @ control_vector
+        state_covariance = self.transition_model @ previous_state_covariance @ self.transition_model.T + self.transition_noise_covariance
         state_mean = np.squeeze(state_mean)
         return GaussianVector(state_mean, state_covariance)
 
     def observe(
         self,
-        state_prior,
+        prior_state,
         observation_vector):
-        # Check properties of state_mean_prior and coerce into desired format
-        state_mean_prior = np.asarray(state_prior.mean)
-        if state_mean_prior.size != self.num_state_variables:
+        # Check properties of prior_state_mean and coerce into desired format
+        prior_state_mean = np.asarray(prior_state.mean)
+        if prior_state_mean.size != self.num_state_variables:
             raise ValueError('Size of prior state mean vector does not equal number of state variables in model')
-        state_mean_prior = state_mean_prior.reshape(self.num_state_variables, 1)
-        # Check properties of state_covariance_previous and coerce into desired format
-        state_covariance_prior = np.asarray(state_prior.covariance)
-        if state_covariance_prior.size != self.num_state_variables**2:
+        prior_state_mean = prior_state_mean.reshape(self.num_state_variables, 1)
+        # Check properties of prior_state_covariance and coerce into desired format
+        prior_state_covariance = np.asarray(prior_state.covariance)
+        if prior_state_covariance.size != self.num_state_variables**2:
             raise ValueError('Size of prior state covariance matrix does not equal number of state variables in model squared')
-        state_covariance_prior = state_covariance_prior.reshape(self.num_state_variables, self.num_state_variables)
+        prior_state_covariance = prior_state_covariance.reshape(self.num_state_variables, self.num_state_variables)
         # Check properties of observation_vector and coerce into desired format
         observation_vector = np.asarray(observation_vector)
         if observation_vector.size != self.num_observation_variables:
             raise ValueError('Size of observation vector does not equal number of observation variables in model')
         observation_vector = observation_vector.reshape(self.num_observation_variables, 1)
         # Calculate the posterior state mean and covariance
-        kalman_gain_modified = state_covariance_prior @ self.observation_model.T @ np.linalg.inv(
-            self.observation_model @ state_covariance_prior @ self.observation_model.T + self.observation_noise_covariance)
-        state_mean_posterior = state_mean_prior + kalman_gain_modified @ (observation_vector - self.observation_model @ state_mean_prior)
-        state_covariance_posterior = state_covariance_prior - kalman_gain_modified @ self.observation_model @ state_covariance_prior
-        state_mean_posterior = np.squeeze(state_mean_posterior)
-        return GaussianVector(state_mean_posterior, state_covariance_posterior)
+        kalman_gain_modified = prior_state_covariance @ self.observation_model.T @ np.linalg.inv(
+            self.observation_model @ prior_state_covariance @ self.observation_model.T + self.observation_noise_covariance)
+        posterior_state_mean = prior_state_mean + kalman_gain_modified @ (observation_vector - self.observation_model @ prior_state_mean)
+        posterior_state_covariance = prior_state_covariance - kalman_gain_modified @ self.observation_model @ prior_state_covariance
+        posterior_state_mean = np.squeeze(posterior_state_mean)
+        return GaussianVector(posterior_state_mean, posterior_state_covariance)
 
     def update(
         self,
-        state_previous,
+        previous_state,
         observation_vector,
         control_vector = None):
-        state_prior = self.predict(
-            state_previous,
+        prior_state = self.predict(
+            previous_state,
             control_vector)
-        state_posterior = self.observe(
-            state_prior,
+        posterior_state = self.observe(
+            prior_state,
             observation_vector)
-        return state_posterior
+        return posterior_state
