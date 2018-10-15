@@ -82,12 +82,12 @@ class LinearGaussianModel:
         previous_state,
         control_vector = None):
         # Check properties of previous_state_mean and coerce into desired format
-        previous_state_mean = np.asarray(previous_state.mean)
+        previous_state_mean = previous_state.mean
         if previous_state_mean.size != self.num_state_variables:
             raise ValueError('Size of previous state mean vector does not equal number of state variables in model')
         previous_state_mean = previous_state_mean.reshape(self.num_state_variables, 1)
         # Check properties of previous_state_covariance and coerce into desired format
-        previous_state_covariance = np.asarray(previous_state.covariance)
+        previous_state_covariance = previous_state.covariance
         if previous_state_covariance.size != self.num_state_variables**2:
             raise ValueError('Size of previous state covariance matrix does not equal number of state variables in model squared')
         previous_state_covariance = previous_state_covariance.reshape(self.num_state_variables, self.num_state_variables)
@@ -109,12 +109,12 @@ class LinearGaussianModel:
         prior_state,
         observation_vector):
         # Check properties of prior_state_mean and coerce into desired format
-        prior_state_mean = np.asarray(prior_state.mean)
+        prior_state_mean = prior_state.mean
         if prior_state_mean.size != self.num_state_variables:
             raise ValueError('Size of prior state mean vector does not equal number of state variables in model')
         prior_state_mean = prior_state_mean.reshape(self.num_state_variables, 1)
         # Check properties of prior_state_covariance and coerce into desired format
-        prior_state_covariance = np.asarray(prior_state.covariance)
+        prior_state_covariance = prior_state.covariance
         if prior_state_covariance.size != self.num_state_variables**2:
             raise ValueError('Size of prior state covariance matrix does not equal number of state variables in model squared')
         prior_state_covariance = prior_state_covariance.reshape(self.num_state_variables, self.num_state_variables)
