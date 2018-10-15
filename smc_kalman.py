@@ -1,6 +1,6 @@
 import numpy as np
 
-class GaussianVector:
+class GaussianDistribution:
     def __init__(
         self,
         mean,
@@ -109,12 +109,12 @@ class LinearGaussianModel:
             raise ValueError('Size of control vector does not equal number of control variables in model')
         control_vector = control_vector.reshape(self.num_control_variables, 1)
         # Calculate the new state mean and covariance
-        state_mean = self.transition_model @ previous_state_mean + self.control_model @ control_vector
-        state_covariance = self.transition_model @ previous_state_covariance @ self.transition_model.T + self.transition_noise_covariance
-        state_mean = np.squeeze(state_mean)
-        return GaussianVector(state_mean, state_covariance)
+        current_state_mean = self.transition_model @ previous_state_mean + self.control_model @ control_vector
+        current_state_covariance = self.transition_model @ previous_state_covariance @ self.transition_model.T + self.transition_noise_covariance
+        current_state_mean = np.squeeze(current_state_mean)
+        return GaussianDistribution(current_state_mean, current_state_covariance)
 
-    def observe(
+    def incorporate_observation(
         self,
         prior_state,
         observation_vector):
@@ -139,7 +139,7 @@ class LinearGaussianModel:
         posterior_state_mean = prior_state_mean + kalman_gain_modified @ (observation_vector - self.observation_model @ prior_state_mean)
         posterior_state_covariance = prior_state_covariance - kalman_gain_modified @ self.observation_model @ prior_state_covariance
         posterior_state_mean = np.squeeze(posterior_state_mean)
-        return GaussianVector(posterior_state_mean, posterior_state_covariance)
+        return GaussianDistribution(posterior_state_mean, posterior_state_covariance)
 
     def update(
         self,
@@ -149,7 +149,7 @@ class LinearGaussianModel:
         prior_state = self.predict(
             previous_state,
             control_vector)
-        posterior_state = self.observe(
+        posterior_state = self.incorporate_observation(
             prior_state,
             observation_vector)
         return posterior_state
