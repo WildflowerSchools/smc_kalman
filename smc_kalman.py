@@ -114,6 +114,25 @@ class LinearGaussianModel:
         current_state_mean = np.squeeze(current_state_mean)
         return GaussianDistribution(current_state_mean, current_state_covariance)
 
+    def observe(
+        self,
+        state):
+        # Check properties of state_mean and coerce into desired format
+        state_mean = state.mean
+        if state_mean.size != self.num_state_variables:
+            raise ValueError('Size of state mean vector does not equal number of state variables in model')
+        state_mean = state_mean.reshape(self.num_state_variables, 1)
+        # Check properties of state_covariance and coerce into desired format
+        state_covariance = state.covariance
+        if state_covariance.size != self.num_state_variables**2:
+            raise ValueError('Size of state covariance matrix does not equal number of state variables in model squared')
+        state_covariance = state_covariance.reshape(self.num_state_variables, self.num_state_variables)
+        # Calculate the observation mean and covariance
+        observation_mean = self.observation_model @ state_mean
+        observation_covariance = self.observation_model @ state_covariance @ self.observation_model.T + self.observation_noise_covariance
+        observation_mean = np.squeeze(observation_mean)
+        return GaussianDistribution(observation_mean, observation_covariance)
+
     def incorporate_observation(
         self,
         prior_state,
