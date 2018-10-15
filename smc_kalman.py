@@ -24,6 +24,16 @@ class GaussianVector:
             raise ValueError('Dimensions of specified covariance not equal to number of variables implied by mean vector')
         self.covariance = covariance
 
+    def sample(
+        self,
+        num_samples = 1):
+        samples = np.random.multivariate_normal(
+            self.mean,
+            self.covariance,
+            num_samples)
+        samples = np.squeeze(samples)
+        return samples
+
 class LinearGaussianModel:
     def __init__(
         self,
