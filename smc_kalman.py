@@ -172,3 +172,43 @@ class LinearGaussianModel:
             current_state_distribution,
             observation_vector)
         return posterior_state_distribution
+
+    def simulate_prediction(
+        self,
+        previous_state,
+        control_vector):
+        # Check properties of previous state and coerce into desired format
+        previous_state = np.asarray(previous_state)
+        if np.squeeze(previous_state).ndim > 1:
+            raise ValueError('Specified previous state vector is not one-dimensional')
+        if previous_state.size != self.num_state_variables:
+            raise ValueError('Size of previous state vector does not equal number of state variables in model')
+        previous_state_distribution_mean = previous_state
+        previous_state_distribution_covariance = np.zeros((self.num_state_variables, self.num_state_variables))
+        previous_state_distribution = GaussianDistribution(
+            previous_state_distribution_mean,
+            previous_state_distribution_covariance)
+        current_state_distribution = self.predict(
+            previous_state_distribution,
+            control_vector)
+        current_state = current_state_distribution.sample()
+        return current_state
+
+    def simulate_observation(
+        self,
+        state):
+        # Check properties of state and coerce into desired format
+        state = np.asarray(state)
+        if np.squeeze(state).ndim > 1:
+            raise ValueError('Specified state vector is not one-dimensional')
+        if state.size != self.num_state_variables:
+            raise ValueError('Size of state vector does not equal number of state variables in model')
+        state_distribution_mean = state
+        state_distribution_covariance = np.zeros((self.num_state_variables, self.num_state_variables))
+        state_distribution = GaussianDistribution(
+            state_distribution_mean,
+            state_distribution_covariance)
+        observation_distribution = self.observe(
+            state_distribution)
+        observation = observation_distribution.sample()
+        return observation
