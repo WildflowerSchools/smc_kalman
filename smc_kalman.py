@@ -126,7 +126,7 @@ class LinearGaussianModel:
         previous_state_distribution_covariance = previous_state_distribution_covariance.reshape(self.num_state_variables, self.num_state_variables)
         # Check properties of control vector and coerce into desired format
         if control_vector is None:
-            control_vector = np.zeros((num_control_variables, 1))
+            control_vector = np.zeros((self.num_control_variables, 1))
         control_vector = np.asarray(control_vector)
         if control_vector.size != self.num_control_variables:
             raise ValueError('Size of control vector does not equal number of control variables in model')
