@@ -11,7 +11,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'numpy>=1.15',
-        'scipy>=1.1'
+        'scipy>=1.1',
         'matplotlib>=2.2'],
     classifiers=(
         "Programming Language :: Python :: 3",
