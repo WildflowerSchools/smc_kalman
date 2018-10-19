@@ -1,4 +1,6 @@
 import numpy as np
+import scipy.stats
+import scipy.spatial
 
 class GaussianDistribution:
     def __init__(
@@ -33,6 +35,27 @@ class GaussianDistribution:
             num_samples)
         samples = np.squeeze(samples)
         return samples
+
+    def log_pdf(
+        self,
+        samples):
+        samples = np.array(samples)
+        if samples.shape[-1] != self.num_variables:
+            raise ValueError('Last dimension of samples array does not match number of variables in distribution')
+        log_pdf = scipy.stats.multivariate_normal.logpdf(samples, self.mean, self.covariance)
+        return log_pdf
+
+    def mahalanobis_distance(
+        self,
+        samples):
+        samples = np.array(samples)
+        if samples.shape[-1] != self.num_variables:
+            raise ValueError('Last dimension of samples array does not match number of variables in distribution')
+        inverse_covariance = np.linalg.inv(self.covariance)
+        def mahalanobis_distance_oned(sample):
+            return scipy.spatial.distance.mahalanobis(sample, self.mean, inverse_covariance)
+        distances = np.apply_along_axis(mahalanobis_distance_oned, -1, samples)
+        return distances
 
 class LinearGaussianModel:
     def __init__(
