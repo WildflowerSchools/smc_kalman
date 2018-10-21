@@ -60,60 +60,79 @@ class GaussianDistribution:
 class LinearGaussianModel:
     def __init__(
         self,
-        transition_model,
-        transition_noise_covariance,
-        observation_model,
-        observation_noise_covariance,
+        transition_model = None,
+        transition_noise_covariance = None,
+        observation_model = None,
+        observation_noise_covariance = None,
         control_model = None):
+        self.num_state_variables = None
+        self.num_observation_variables = None
+        self.num_control_variables = None
         # Check properties of transition model and coerce into desired format
-        transition_model = np.asarray(transition_model)
-        if transition_model.size == 1:
-            transition_model = transition_model.reshape((1, 1))
-        if transition_model.ndim != 2:
-            raise ValueError('Specified transition model is not a two-dimensional matrix')
-        if transition_model.shape[0] != transition_model.shape[1]:
-            raise ValueError('Specified transition model is not a square matrix')
+        if transition_model is not None:
+            transition_model = np.asarray(transition_model)
+            if transition_model.size == 1:
+                transition_model = transition_model.reshape((1, 1))
+            if transition_model.ndim != 2:
+                raise ValueError('Specified transition model is not a two-dimensional matrix')
+            if transition_model.shape[0] != transition_model.shape[1]:
+                raise ValueError('Specified transition model is not a square matrix')
+            self.num_state_variables = transition_model.shape[0]
+            # Check properties of transition noise covariance and coerce into desired format
+            if transition_noise_covariance is None:
+                transition_noise_covariance = np.zeros(num_state_variables, num_state_variables)
+            transition_noise_covariance = np.asarray(transition_noise_covariance)
+            if transition_noise_covariance.size == 1:
+                transition_noise_covariance = transition_noise_covariance.reshape((1, 1))
+            if transition_noise_covariance.ndim != 2:
+                raise ValueError('Specified transition noise covariance is not a two-dimensional matrix')
+            if transition_noise_covariance.shape[0] != transition_noise_covariance.shape[1]:
+                raise ValueError('Specified transition noise covariance is not a square matrix')
+            if transition_noise_covariance.shape[0] != self.num_state_variables:
+                raise ValueError('Dimensions of specified transition noise covariance not equal to number of state variables implied by specified transition model')
+            # Check properties of control model and coerce into desired format
+            if control_model is None:
+                control_model = np.zeros((self.num_state_variables, 1))
+            control_model = np.asarray(control_model)
+            control_model = control_model.reshape((self.num_state_variables, -1))
+            self.num_control_variables = control_model.shape[1]
+        if observation_model is not None:
+            # Check properties of observation model and coerce into desired format
+            observation_model = np.asarray(observation_model)
+            if observation_model.size == 1:
+                observation_model = observation_model.reshape((1,1))
+            if observation_model.ndim == 1:
+                if self.num_state_variables is not None:
+                    observation_model = observation_model.reshape(-1, self.num_state_variables)
+                else:
+                    raise ValueError('Specified observation model is one-dimensional and no transition model specified. Number of state and observation variables ambiguous')
+            if observation_model.ndim !=2:
+                raise ValueError('Specified observation model has greater than two dimensions')
+            if self.num_state_variables is None:
+                self.num_state_variables = observation_model.shape[1]
+            self.num_observation_variables = observation_model.shape[0]
+            # Check properties of observation noise covariance and coerce into desired format
+            observation_noise_covariance = np.asarray(observation_noise_covariance)
+            if observation_noise_covariance.size == 1:
+                observation_noise_covariance = observation_noise_covariance.reshape((1, 1))
+            if observation_noise_covariance.ndim != 2:
+                raise ValueError('Specified observation noise covariance is not a two-dimensional matrix')
+            if observation_noise_covariance.shape[0] != observation_noise_covariance.shape[1]:
+                raise ValueError('Specified observation noise covariance is not a square matrix')
+            if observation_noise_covariance.shape[0] != self.num_observation_variables:
+                raise ValueError('Dimensions of specified observation noise covariance not equal to number of observation variables implied by observation model')
         self.transition_model = transition_model
-        self.num_state_variables = self.transition_model.shape[0]
-        # Check properties of transition noise covariance and coerce into desired format
-        transition_noise_covariance = np.asarray(transition_noise_covariance)
-        if transition_noise_covariance.size == 1:
-            transition_noise_covariance = transition_noise_covariance.reshape((1, 1))
-        if transition_noise_covariance.ndim != 2:
-            raise ValueError('Specified transition noise covariance is not a two-dimensional matrix')
-        if transition_noise_covariance.shape[0] != transition_noise_covariance.shape[1]:
-            raise ValueError('Specified transition noise covariance is not a square matrix')
-        if transition_noise_covariance.shape[0] != self.num_state_variables:
-            raise ValueError('Dimensions of specified transition noise covariance not equal to number of state variables implied by specified transition model')
         self.transition_noise_covariance = transition_noise_covariance
-        # Check properties of observation model and coerce into desired format
-        observation_model = np.asarray(observation_model)
-        observation_model = observation_model.reshape(-1, self.num_state_variables)
-        self.observation_model = observation_model
-        self.num_observation_variables = self.observation_model.shape[0]
-        # Check properties of observation noise covariance and coerce into desired format
-        observation_noise_covariance = np.asarray(observation_noise_covariance)
-        if observation_noise_covariance.size == 1:
-            observation_noise_covariance = observation_noise_covariance.reshape((1, 1))
-        if observation_noise_covariance.ndim != 2:
-            raise ValueError('Specified observation noise covariance is not a two-dimensional matrix')
-        if observation_noise_covariance.shape[0] != observation_noise_covariance.shape[1]:
-            raise ValueError('Specified observation noise covariance is not a square matrix')
-        if observation_noise_covariance.shape[0] != self.num_observation_variables:
-            raise ValueError('Dimensions of specified observation noise covariance not equal to number of observation variables implied by observation model')
-        self.observation_noise_covariance = observation_noise_covariance
-        # Check properties of control model and coerce into desired format
-        if control_model is None:
-            control_model = np.zeros((self.num_state_variables, 1))
-        control_model = np.asarray(control_model)
-        control_model = control_model.reshape((self.num_state_variables, -1))
         self.control_model = control_model
-        self.num_control_variables = control_model.shape[1]
+        self.observation_model = observation_model
+        self.observation_noise_covariance = observation_noise_covariance
 
     def predict(
         self,
         previous_state_distribution,
         control_vector = None):
+        if self.transition_model is None:
+            raise ValueError('Transition model not specified')
         # Check properties of previous state distribution mean and coerce into desired format
         previous_state_distribution_mean = previous_state_distribution.mean
         if previous_state_distribution_mean.size != self.num_state_variables:
@@ -140,6 +159,8 @@ class LinearGaussianModel:
     def observe(
         self,
         state_distribution):
+        if self.observation_model is None:
+            raise ValueError('Observation model not specified')
         # Check properties of state distribution mean and coerce into desired format
         state_distribution_mean = state_distribution.mean
         if state_distribution_mean.size != self.num_state_variables:
@@ -160,6 +181,8 @@ class LinearGaussianModel:
         self,
         prior_state_distribution,
         observation_vector):
+        if self.observation_model is None:
+            raise ValueError('Observation model not specified')
         # Check properties of prior state distribution mean and coerce into desired format
         prior_state_distribution_mean = prior_state_distribution.mean
         if prior_state_distribution_mean.size != self.num_state_variables:
