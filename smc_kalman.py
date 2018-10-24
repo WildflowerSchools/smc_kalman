@@ -219,6 +219,14 @@ class LinearGaussianModel:
             observation_vector)
         return posterior_state_distribution
 
+    def observation_mahalanobis_distance(
+        self,
+        state_distribution,
+        observation_vector):
+        observation_distribution = self.observe(state_distribution)
+        mahalanobis_distance = observation_distribution.mahalanobis_distance(observation_vector)
+        return mahalanobis_distance
+
     def simulate_prediction(
         self,
         previous_state,
