@@ -57,6 +57,110 @@ class GaussianDistribution:
         distances = np.apply_along_axis(mahalanobis_distance_oned, -1, samples)
         return distances
 
+    def predict(
+        self,
+        linear_gaussian_model,
+        control_vector = None):
+        previous_state_distribution = self
+        if linear_gaussian_model.transition_model is None:
+            raise ValueError('Transition model not specified')
+        # Check properties of previous state distribution mean and coerce into desired format
+        previous_state_distribution_mean = previous_state_distribution.mean
+        if previous_state_distribution_mean.size != linear_gaussian_model.num_state_variables:
+            raise ValueError('Size of previous state distribution mean vector does not equal number of state variables in model')
+        previous_state_distribution_mean = previous_state_distribution_mean.reshape(linear_gaussian_model.num_state_variables, 1)
+        # Check properties of previous state distribution covariance and coerce into desired format
+        previous_state_distribution_covariance = previous_state_distribution.covariance
+        if previous_state_distribution_covariance.size != linear_gaussian_model.num_state_variables**2:
+            raise ValueError('Size of previous state distribution covariance matrix does not equal number of state variables in model squared')
+        previous_state_distribution_covariance = previous_state_distribution_covariance.reshape(linear_gaussian_model.num_state_variables, linear_gaussian_model.num_state_variables)
+        # Check properties of control vector and coerce into desired format
+        if control_vector is None:
+            control_vector = np.zeros((linear_gaussian_model.num_control_variables, 1))
+        control_vector = np.asarray(control_vector)
+        if control_vector.size != linear_gaussian_model.num_control_variables:
+            raise ValueError('Size of control vector does not equal number of control variables in model')
+        control_vector = control_vector.reshape(linear_gaussian_model.num_control_variables, 1)
+        # Calculate the current state distribution mean and covariance
+        current_state_distribution_mean = linear_gaussian_model.transition_model @ previous_state_distribution_mean + linear_gaussian_model.control_model @ control_vector
+        current_state_distribution_covariance = linear_gaussian_model.transition_model @ previous_state_distribution_covariance @ linear_gaussian_model.transition_model.T + linear_gaussian_model.transition_noise_covariance
+        current_state_distribution_mean = np.squeeze(current_state_distribution_mean)
+        return GaussianDistribution(current_state_distribution_mean, current_state_distribution_covariance)
+
+    def observe(
+        self,
+        linear_gaussian_model):
+        state_distribution = self
+        if linear_gaussian_model.observation_model is None:
+            raise ValueError('Observation model not specified')
+        # Check properties of state distribution mean and coerce into desired format
+        state_distribution_mean = state_distribution.mean
+        if state_distribution_mean.size != linear_gaussian_model.num_state_variables:
+            raise ValueError('Size of state distribution mean vector does not equal number of state variables in model')
+        state_distribution_mean = state_distribution_mean.reshape(linear_gaussian_model.num_state_variables, 1)
+        # Check properties of state distribution covariance and coerce into desired format
+        state_distribution_covariance = state_distribution.covariance
+        if state_distribution_covariance.size != linear_gaussian_model.num_state_variables**2:
+            raise ValueError('Size of state distribution covariance matrix does not equal number of state variables in model squared')
+        state_distribution_covariance = state_distribution_covariance.reshape(linear_gaussian_model.num_state_variables, linear_gaussian_model.num_state_variables)
+        # Calculate the observation distribution mean and covariance
+        observation_distribution_mean = linear_gaussian_model.observation_model @ state_distribution_mean
+        observation_distribution_covariance = linear_gaussian_model.observation_model @ state_distribution_covariance @ linear_gaussian_model.observation_model.T + linear_gaussian_model.observation_noise_covariance
+        observation_distribution_mean = np.squeeze(observation_distribution_mean)
+        return GaussianDistribution(observation_distribution_mean, observation_distribution_covariance)
+
+    def incorporate_observation(
+        self,
+        linear_gaussian_model,
+        observation_vector):
+        prior_state_distribution = self
+        if linear_gaussian_model.observation_model is None:
+            raise ValueError('Observation model not specified')
+        # Check properties of prior state distribution mean and coerce into desired format
+        prior_state_distribution_mean = prior_state_distribution.mean
+        if prior_state_distribution_mean.size != linear_gaussian_model.num_state_variables:
+            raise ValueError('Size of prior state distribution mean vector does not equal number of state variables in model')
+        prior_state_distribution_mean = prior_state_distribution_mean.reshape(linear_gaussian_model.num_state_variables, 1)
+        # Check properties of prior state distribution covariance and coerce into desired format
+        prior_state_distribution_covariance = prior_state_distribution.covariance
+        if prior_state_distribution_covariance.size != linear_gaussian_model.num_state_variables**2:
+            raise ValueError('Size of prior state distribution covariance matrix does not equal number of state variables in model squared')
+        prior_state_distribution_covariance = prior_state_distribution_covariance.reshape(linear_gaussian_model.num_state_variables, linear_gaussian_model.num_state_variables)
+        # Check properties of observation vector and coerce into desired format
+        observation_vector = np.asarray(observation_vector)
+        if observation_vector.size != linear_gaussian_model.num_observation_variables:
+            raise ValueError('Size of observation vector does not equal number of observation variables in model')
+        observation_vector = observation_vector.reshape(linear_gaussian_model.num_observation_variables, 1)
+        # Calculate the posterior state distribution mean and covariance
+        kalman_gain_modified = prior_state_distribution_covariance @ linear_gaussian_model.observation_model.T @ np.linalg.inv(
+            linear_gaussian_model.observation_model @ prior_state_distribution_covariance @ linear_gaussian_model.observation_model.T + linear_gaussian_model.observation_noise_covariance)
+        posterior_state_distribution_mean = prior_state_distribution_mean + kalman_gain_modified @ (observation_vector - linear_gaussian_model.observation_model @ prior_state_distribution_mean)
+        posterior_state_distribution_covariance = prior_state_distribution_covariance - kalman_gain_modified @ linear_gaussian_model.observation_model @ prior_state_distribution_covariance
+        posterior_state_distribution_mean = np.squeeze(posterior_state_distribution_mean)
+        return GaussianDistribution(posterior_state_distribution_mean, posterior_state_distribution_covariance)
+
+    def update(
+        self,
+        linear_gaussian_model,
+        observation_vector,
+        control_vector = None):
+        previous_state_distribution = self
+        current_state_distribution = self.predict(
+            linear_gaussian_model,
+            control_vector)
+        posterior_state_distribution = current_state_distribution.incorporate_observation(
+            linear_gaussian_model,
+            observation_vector)
+        return posterior_state_distribution
+
+    def observation_mahalanobis_distance(
+        self,
+        linear_gaussian_model,
+        observation_vector):
+        observation_distribution = self.observe(linear_gaussian_model)
+        mahalanobis_distance = observation_distribution.mahalanobis_distance(observation_vector)
+        return mahalanobis_distance
+
 class LinearGaussianModel:
     def __init__(
         self,
@@ -127,106 +231,6 @@ class LinearGaussianModel:
         self.observation_model = observation_model
         self.observation_noise_covariance = observation_noise_covariance
 
-    def predict(
-        self,
-        previous_state_distribution,
-        control_vector = None):
-        if self.transition_model is None:
-            raise ValueError('Transition model not specified')
-        # Check properties of previous state distribution mean and coerce into desired format
-        previous_state_distribution_mean = previous_state_distribution.mean
-        if previous_state_distribution_mean.size != self.num_state_variables:
-            raise ValueError('Size of previous state distribution mean vector does not equal number of state variables in model')
-        previous_state_distribution_mean = previous_state_distribution_mean.reshape(self.num_state_variables, 1)
-        # Check properties of previous state distribution covariance and coerce into desired format
-        previous_state_distribution_covariance = previous_state_distribution.covariance
-        if previous_state_distribution_covariance.size != self.num_state_variables**2:
-            raise ValueError('Size of previous state distribution covariance matrix does not equal number of state variables in model squared')
-        previous_state_distribution_covariance = previous_state_distribution_covariance.reshape(self.num_state_variables, self.num_state_variables)
-        # Check properties of control vector and coerce into desired format
-        if control_vector is None:
-            control_vector = np.zeros((self.num_control_variables, 1))
-        control_vector = np.asarray(control_vector)
-        if control_vector.size != self.num_control_variables:
-            raise ValueError('Size of control vector does not equal number of control variables in model')
-        control_vector = control_vector.reshape(self.num_control_variables, 1)
-        # Calculate the current state distribution mean and covariance
-        current_state_distribution_mean = self.transition_model @ previous_state_distribution_mean + self.control_model @ control_vector
-        current_state_distribution_covariance = self.transition_model @ previous_state_distribution_covariance @ self.transition_model.T + self.transition_noise_covariance
-        current_state_distribution_mean = np.squeeze(current_state_distribution_mean)
-        return GaussianDistribution(current_state_distribution_mean, current_state_distribution_covariance)
-
-    def observe(
-        self,
-        state_distribution):
-        if self.observation_model is None:
-            raise ValueError('Observation model not specified')
-        # Check properties of state distribution mean and coerce into desired format
-        state_distribution_mean = state_distribution.mean
-        if state_distribution_mean.size != self.num_state_variables:
-            raise ValueError('Size of state distribution mean vector does not equal number of state variables in model')
-        state_distribution_mean = state_distribution_mean.reshape(self.num_state_variables, 1)
-        # Check properties of state distribution covariance and coerce into desired format
-        state_distribution_covariance = state_distribution.covariance
-        if state_distribution_covariance.size != self.num_state_variables**2:
-            raise ValueError('Size of state distribution covariance matrix does not equal number of state variables in model squared')
-        state_distribution_covariance = state_distribution_covariance.reshape(self.num_state_variables, self.num_state_variables)
-        # Calculate the observation distribution mean and covariance
-        observation_distribution_mean = self.observation_model @ state_distribution_mean
-        observation_distribution_covariance = self.observation_model @ state_distribution_covariance @ self.observation_model.T + self.observation_noise_covariance
-        observation_distribution_mean = np.squeeze(observation_distribution_mean)
-        return GaussianDistribution(observation_distribution_mean, observation_distribution_covariance)
-
-    def incorporate_observation(
-        self,
-        prior_state_distribution,
-        observation_vector):
-        if self.observation_model is None:
-            raise ValueError('Observation model not specified')
-        # Check properties of prior state distribution mean and coerce into desired format
-        prior_state_distribution_mean = prior_state_distribution.mean
-        if prior_state_distribution_mean.size != self.num_state_variables:
-            raise ValueError('Size of prior state distribution mean vector does not equal number of state variables in model')
-        prior_state_distribution_mean = prior_state_distribution_mean.reshape(self.num_state_variables, 1)
-        # Check properties of prior state distribution covariance and coerce into desired format
-        prior_state_distribution_covariance = prior_state_distribution.covariance
-        if prior_state_distribution_covariance.size != self.num_state_variables**2:
-            raise ValueError('Size of prior state distribution covariance matrix does not equal number of state variables in model squared')
-        prior_state_distribution_covariance = prior_state_distribution_covariance.reshape(self.num_state_variables, self.num_state_variables)
-        # Check properties of observation vector and coerce into desired format
-        observation_vector = np.asarray(observation_vector)
-        if observation_vector.size != self.num_observation_variables:
-            raise ValueError('Size of observation vector does not equal number of observation variables in model')
-        observation_vector = observation_vector.reshape(self.num_observation_variables, 1)
-        # Calculate the posterior state distribution mean and covariance
-        kalman_gain_modified = prior_state_distribution_covariance @ self.observation_model.T @ np.linalg.inv(
-            self.observation_model @ prior_state_distribution_covariance @ self.observation_model.T + self.observation_noise_covariance)
-        posterior_state_distribution_mean = prior_state_distribution_mean + kalman_gain_modified @ (observation_vector - self.observation_model @ prior_state_distribution_mean)
-        posterior_state_distribution_covariance = prior_state_distribution_covariance - kalman_gain_modified @ self.observation_model @ prior_state_distribution_covariance
-        posterior_state_distribution_mean = np.squeeze(posterior_state_distribution_mean)
-        return GaussianDistribution(posterior_state_distribution_mean, posterior_state_distribution_covariance)
-
-    def update(
-        self,
-        previous_state_distribution,
-        observation_vector,
-        control_vector = None):
-        current_state_distribution = self.predict(
-            previous_state_distribution,
-            control_vector)
-        posterior_state_distribution = self.incorporate_observation(
-            current_state_distribution,
-            observation_vector)
-        return posterior_state_distribution
-
-    def observation_mahalanobis_distance(
-        self,
-        state_distribution,
-        observation_vector):
-        observation_distribution = self.observe(state_distribution)
-        mahalanobis_distance = observation_distribution.mahalanobis_distance(observation_vector)
-        return mahalanobis_distance
-
     def simulate_prediction(
         self,
         previous_state,
@@ -242,8 +246,8 @@ class LinearGaussianModel:
         previous_state_distribution = GaussianDistribution(
             previous_state_distribution_mean,
             previous_state_distribution_covariance)
-        current_state_distribution = self.predict(
-            previous_state_distribution,
+        current_state_distribution = previous_state_distribution.predict(
+            self,
             control_vector)
         current_state = current_state_distribution.sample()
         return current_state
@@ -262,7 +266,6 @@ class LinearGaussianModel:
         state_distribution = GaussianDistribution(
             state_distribution_mean,
             state_distribution_covariance)
-        observation_distribution = self.observe(
-            state_distribution)
+        observation_distribution = state_distribution.observe(self)
         observation = observation_distribution.sample()
         return observation
