@@ -139,7 +139,7 @@ class GaussianDistribution:
         posterior_state_distribution_mean = np.squeeze(posterior_state_distribution_mean)
         return GaussianDistribution(posterior_state_distribution_mean, posterior_state_distribution_covariance)
 
-    def update(
+    def predict_and_incorporate_observation(
         self,
         linear_gaussian_model,
         observation_vector,
