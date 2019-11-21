@@ -1,7 +1,7 @@
 import setuptools
 
 setuptools.setup(
-    name="smc_kalman",
+    name="smc-kalman",
     version="0.0.1",
     author="Theodore Quinn",
     author_email="ted.quinn@wildflowerschools.org",
