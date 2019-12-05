@@ -14,7 +14,7 @@ BASE_DEPENDENCIES = [
 os.chdir(os.path.normpath(BASEDIR))
 
 setup(
-    name='smc-kalman',
+    name='wf-smc-kalman',
     packages=find_packages(),
     version=VERSION,
     include_package_data=True,
